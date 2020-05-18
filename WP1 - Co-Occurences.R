@@ -2,7 +2,7 @@
 # PROJECT: [BFTP] Identifying Biomes And Their Shifts Using Remote Sensing
 # CONTENTS: Functionality to identify clusters of NDVI mean and seasonality
 # AUTHOR: Erik Kusch
-# EDIT: 15/05/20
+# EDIT: 18/05/20
 # ####################################################################### #
 rm(list=ls())
 ####### PREAMBLE/SOURCING ---------------------------------------------------------
@@ -26,7 +26,8 @@ package_vec <- c(
   "mapview", #v2.7.0; for creating html maps
   "ggplot2", #v2_3.2.1; for plotting various things
   "rasterVis", #v0.47; for plotting rasters
-  "gameofthrones" #v1.0.2; for colour palettes
+  "gameofthrones", #v1.0.2; for colour palettes
+  "dplyr" #v0.8.4; for data manipulation
 )
 sapply(package_vec, install.load.package)
 
@@ -83,12 +84,23 @@ if(!file.exists(file.path(Dir.Shapes, "CountryMask.zip"))){ # if land mask has n
 }
 CountryMask <- readOGR(Dir.Shapes, "ne_10m_admin_0_countries", verbose = FALSE) # read land mask in
 
-#### LAKE MASK (for producing maps with national borders)
-if(!file.exists(file.path(Dir.Shapes, "LakeMask.zip"))){ # if land mask has not been downloaded yet
+#### LAKE MASK
+if(!file.exists(file.path(Dir.Shapes, "LakeMask.zip"))){ # if lake mask has not been downloaded yet
   download.file("https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_lakes.zip", destfile = paste(Dir.Shapes, "LakeMask.zip", sep="/")) # download cultural vector
   unzip(paste(Dir.Shapes, "LakeMask.zip", sep="/"), exdir = Dir.Shapes) # unzip the data
 }
-LakeMask <- readOGR(Dir.Shapes, "ne_10m_lakes", verbose = FALSE) # read land mask in
+LakeMask <- readOGR(Dir.Shapes, "ne_10m_lakes", verbose = FALSE) # read lake mask in
+
+#### RIVER MASK
+if(!file.exists(file.path(Dir.Shapes, "RiversMask.zip"))){ # if rivers mask has not been downloaded yet
+  download.file("https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_rivers_lake_centerlines_scale_rank.zip", destfile = paste(Dir.Shapes, "RiversMask.zip", sep="/")) # download cultural vector
+  unzip(paste(Dir.Shapes, "RiversMask.zip", sep="/"), exdir = Dir.Shapes) # unzip the data
+}
+RiversMask <- readOGR(Dir.Shapes, "ne_10m_rivers_lake_centerlines_scale_rank", verbose = FALSE) # read river mask in
+
+#### PROTECTED AREAS MASK (for producing maps with national borders)
+### downloaded from https://www.protectedplanet.net/ since download through R doesn't seem to work
+ProtectedAreasMask <- readOGR(file.path(Dir.Shapes, "WDPA_May2020-shapefile"), "WDPA_May2020-shapefile-polygons", verbose = FALSE) # read protected areas mask in
 
 ############## RANGE LOADING -------------------------------------------------
 ## IUCN ----
@@ -141,6 +153,7 @@ Rasters_ls[["Total"]] <- sum(stack(Rasters_ls), na.rm = TRUE) # build stack
 Rasters_ls[["Total"]] <- mask(Rasters_ls[["Total"]], LandMask) # maks for land mask 
 Rasters_ls[["Total"]] <- mask(Rasters_ls[["Total"]], LakeMask, inverse = TRUE) # mask for lakes
 ## MAPVIEW HTML ----
+ProtectedAreas_mv <- mapview(ProtectedAreasMask, col.regions = "green", color = "black", alpha.regions = 0.3)
 Countries_mv <- mapview(CountryMask, color = "black", alpha.regions = 0)
 Amphibians_mv <- mapview(layer.name = "Amphibian Species Richness", Rasters_ls$AMPHIBIANS, legend = TRUE, 
                          maxpixels =  ncell(Reference_ras), na.color = "#FFFFFF00") 
@@ -216,6 +229,10 @@ for(Cells_Iter in Species_df$ID){ # loop over all species IDs
   setTxtProgressBar(Cells_pb, Cells_Iter) # update progress bar
 }
 
+
+SpeciesCells_df <- bind_rows(SpeciesCells_ls, .id = "column_label")
+
+SpeciesCells_df <- table(SpeciesCells_df)
 
 ### AGGREGATION OF SPECIES BY CELLS ----
 #' Loop over all range files
