@@ -2,7 +2,7 @@
 # PROJECT: [BFTP] Identifying Biomes And Their Shifts Using Remote Sensing
 # CONTENTS: Functionality to identify clusters of NDVI mean and seasonality
 # AUTHOR: Erik Kusch
-# EDIT: 18/05/20
+# EDIT: 22/05/20
 # ####################################################################### #
 rm(list=ls())
 ####### PREAMBLE/SOURCING ---------------------------------------------------------
@@ -27,7 +27,8 @@ package_vec <- c(
   "ggplot2", #v2_3.2.1; for plotting various things
   "rasterVis", #v0.47; for plotting rasters
   "gameofthrones", #v1.0.2; for colour palettes
-  "dplyr" #v0.8.4; for data manipulation
+  "dplyr", #v0.8.4; for data manipulation
+  "stringr" #v1.4.0; for padding numbers
 )
 sapply(package_vec, install.load.package)
 
@@ -98,9 +99,16 @@ if(!file.exists(file.path(Dir.Shapes, "RiversMask.zip"))){ # if rivers mask has 
 }
 RiversMask <- readOGR(Dir.Shapes, "ne_10m_rivers_lake_centerlines_scale_rank", verbose = FALSE) # read river mask in
 
-#### PROTECTED AREAS MASK (for producing maps with national borders)
-### downloaded from https://www.protectedplanet.net/ since download through R doesn't seem to work
-ProtectedAreasMask <- readOGR(file.path(Dir.Shapes, "WDPA_May2020-shapefile"), "WDPA_May2020-shapefile-polygons", verbose = FALSE) # read protected areas mask in
+#### PROTECTED AREAS MASK, this data set is just tooo big!!!
+# ### downloaded from https://www.protectedplanet.net/ since download through R doesn't seem to work
+# ProtectedAreasMask <- readOGR(file.path(Dir.Shapes, "WDPA_May2020-shapefile"), "WDPA_May2020-shapefile-polygons", verbose = FALSE) # read protected areas mask in
+
+#### ECOREGIONS
+if(!file.exists(file.path(Dir.Shapes, "WWF_ecoregions"))){
+  download.file("http://assets.worldwildlife.org/publications/15/files/original/official_teow.zip", destfile = file.path(Dir.Shapes, "wwf_ecoregions.zip"))
+  unzip(file.path(Dir.Shapes, "wwf_ecoregions.zip"), exdir = file.path(Dir.Shapes, "WWF_ecoregions"))
+}
+EcoregionsMask <- readOGR(file.path(Dir.Shapes, "WWF_ecoregions", "official", "wwf_terr_ecos.shp"), verbose = FALSE) # loading shapefile for wwf ecoregions
 
 ############## RANGE LOADING -------------------------------------------------
 ## IUCN ----
@@ -153,7 +161,7 @@ Rasters_ls[["Total"]] <- sum(stack(Rasters_ls), na.rm = TRUE) # build stack
 Rasters_ls[["Total"]] <- mask(Rasters_ls[["Total"]], LandMask) # maks for land mask 
 Rasters_ls[["Total"]] <- mask(Rasters_ls[["Total"]], LakeMask, inverse = TRUE) # mask for lakes
 ## MAPVIEW HTML ----
-ProtectedAreas_mv <- mapview(ProtectedAreasMask, col.regions = "green", color = "black", alpha.regions = 0.3)
+# ProtectedAreas_mv <- mapview(ProtectedAreasMask, col.regions = "green", color = "black", alpha.regions = 0.3)
 Countries_mv <- mapview(CountryMask, color = "black", alpha.regions = 0)
 Amphibians_mv <- mapview(layer.name = "Amphibian Species Richness", Rasters_ls$AMPHIBIANS, legend = TRUE, 
                          maxpixels =  ncell(Reference_ras), na.color = "#FFFFFF00") 
@@ -207,32 +215,98 @@ Species_df <- Species_df[!duplicated(Species_df), ] # remove multiple mentions o
 Species_df <- Species_df[order(Species_df$Name),] # sort by alphabet
 Species_df$ID <- 1:dim(Species_df)[1] # Species ID for later analysis
 
+rm("DataSets_vec")
+
 ####### ESTABLISH CO-OCCURRENCES -----------------------------------------------------
-### OCCURRENCE DATA FRAME ----
-#' check if data frame is already present on harddrive, if yes load it - if no!!!!!!!!
-SpeciesCells_ls <- as.list(rep(NA, dim(Species_df)[1])) # a list which will hold sparse data frames for each species and it's CellIDs
-names(SpeciesCells_ls) <- Species_df$Name # set names of the list positions
-Cells_pb <- txtProgressBar(min = 0, max = dim(Species_df)[1], style = 3) # make progress bar
-for(Cells_Iter in Species_df$ID){ # loop over all species IDs
-  DataSet <- Ranges_ls[[Species_df$Group[[Cells_Iter]]]] # isolate the data set of the current species
-  if(names(Ranges_ls)[[Species_df$Group[Cells_Iter]]] != "BIRDS"){ # BIRD data is stored differently than IUCN data
-    Polys <- which(as.character(DataSet$binomial) == as.character(Species_df$Name[[Cells_Iter]])) # identify the polygon position(s)
+### OCCURRENCE DATA FRAME BY REALMS/BIOMES ----
+if(!file.exists(file.path(Dir.Ranges, "SpeciesCells_df.RData"))){
+  if(!file.exists(file.path(Dir.Ranges, "SpeciesCells_ls.RData"))){
+    Realms_ras <- fasterize(sf = st_as_sf(EcoregionsMask), raster = Reference_ras, field = "REALM", fun = "first")
+    Biomes_ras <- fasterize(sf = st_as_sf(EcoregionsMask), raster = Reference_ras, field = "BIOME", fun = "first")
+    SpeciesCells_ls <- as.list(rep(NA, dim(Species_df)[1])) # a list which will hold sparse data frames for each species and it's CellIDs
+    names(SpeciesCells_ls) <- Species_df$Name # set names of the list positions
+    Cells_pb <- txtProgressBar(min = 0, max = dim(Species_df)[1], style = 3) # make progress bar
+    for(Cells_Iter in Species_df$ID){ # loop over all species IDs
+      DataSet <- Ranges_ls[[Species_df$Group[[Cells_Iter]]]] # isolate the data set of the current species
+      if(names(Ranges_ls)[[Species_df$Group[Cells_Iter]]] != "BIRDS"){ # BIRD data is stored differently than IUCN data
+        Polys <- which(as.character(DataSet$binomial) == as.character(Species_df$Name[[Cells_Iter]])) # identify the polygon position(s)
+      }else{
+        Polys <- which(as.character(DataSet$SCINAME) == as.character(Species_df$Name[[Cells_Iter]])) # identify the polygon position(s)
+      }
+      Presence_ras <- fasterize(st_as_sf(DataSet[Polys,]), raster = Reference_ras, field = NULL, fun = "max") # raserize species range
+      Cells <- which(!is.na(values(Presence_ras))) # identify cells with data
+      # create data frame with species ID and CellIDs
+      SpeciesCells_df <- data.frame(SpeciesID = rep(Species_df$ID[[Cells_Iter]], length(Cells)), 
+                                    CellID = Cells,
+                                    RealmID = values(Realms_ras)[Cells],
+                                    BiomeID = values(Biomes_ras)[Cells])
+      SpeciesCells_ls[[Cells_Iter]] <- SpeciesCells_df # save dta frame to list
+      print(as.character(Species_df$Name[[Cells_Iter]]))
+      setTxtProgressBar(Cells_pb, Cells_Iter) # update progress bar
+    }
+    rm(list = c("SpeciesCells_df", "Cells_pb", "Names_Iter", "Presence_ras", "Polys", "SpeciesNamesAdd_vec", "Cells_Iter", "Cells", "DataSet"))
+    save(SpeciesCells_ls, file = file.path(Dir.Ranges, "SpeciesCells_ls.RData"))
   }else{
-    Polys <- which(as.character(DataSet$SCINAME) == as.character(Species_df$Name[[Cells_Iter]])) # identify the polygon position(s)
+    load(file.path(Dir.Ranges, "SpeciesCells_ls.RData"))
   }
-  Presence_ras <- fasterize(st_as_sf(DataSet[Polys,]), raster = Reference_ras, field = NULL, fun = "max") # raserize species range
-  Cells <- which(!is.na(values(Presence_ras))) # identify cells with data
-  # create data frame with species ID and CellIDs
-  SpeciesCells_df <- data.frame(SpeciesID = rep(Species_df$ID[[Cells_Iter]], length(Cells)),
-                                CellID = Cells)
-  SpeciesCells_ls[[Cells_Iter]] <- SpeciesCells_df # save dta frame to list
-  setTxtProgressBar(Cells_pb, Cells_Iter) # update progress bar
+  SpeciesCells_df <- bind_rows(SpeciesCells_ls, .id = 'column_label')
+  rm(SpeciesCells_ls)
+  SpeciesCells_df <- na.omit(SpeciesCells_df)
+  SpeciesCells_df$RealmID <- str_pad(as.character(SpeciesCells_df$RealmID), 2, "left","0")
+  SpeciesCells_df$BiomeID <- str_pad(as.character(SpeciesCells_df$BiomeID), 2, "left","0")
+  SpeciesCells_df$BiomesInRealms<- with(SpeciesCells_df, paste(RealmID, BiomeID, sep ="_"))
+  save(SpeciesCells_df, file = file.path(Dir.Ranges, "SpeciesCells_df.RData"))
+}else{
+  load(file.path(Dir.Ranges, "SpeciesCells_df.RData"))
 }
 
+### OCCURRENCE DATA FRAME BY REALMS ----
+Abbr_Realms <- 1:8
+Full_Realms <- c("Australasia", "Antarctic", "Afrotropics", "IndoMalay", "Nearctic", "Neotropics", "Oceania", "Palearctic")
+Abbr_Biomes <- 1:18
+Full_Biomes <- c("Tropical & Subtropical Moist Broadleaf Forests",
+                 "Tropical & Subtropical Dry Broadleaf Forests",
+                 "Tropical & Subtropical Coniferous Forests",
+                 "Temperate Broadleaf & Mixed Forests",
+                 "Temperate Conifer Forests",
+                 "Boreal Forests/Taiga",
+                 "Tropical & Subtropical Grasslands, Savannas & Shrublands",
+                 "Temperate Grasslands, Savannas & Shrublands",
+                 "Flooded Grasslands & Savannas",
+                 "Montane Grasslands & Shrublands",
+                 "Tundra",
+                 "Mediterranean Forests, Woodlands & Scrub",
+                 "Deserts & Xeric Shrublands",
+                 "Mangroves")
 
-SpeciesCells_df <- bind_rows(SpeciesCells_ls, .id = "column_label")
 
-SpeciesCells_df <- table(SpeciesCells_df)
+
+BiomeRealms <- sort(unique(SpeciesCells_df$BiomesInRealms))
+
+SiteCommunities_ls <- as.list(rep(NA, length(BiomeRealms)))
+names(SiteCommunities_ls) <- BiomeRealms
+
+for(Realm_Iter in 1:length(BiomeRealms)){
+  print(BiomeRealms[Realm_Iter])
+  CurrRealm <- BiomeRealms[Realm_Iter]
+  CurrRows <- which(SpeciesCells_df$BiomesInRealms == CurrRealm)
+  CurrCells <- SpeciesCells_df[CurrRows,]
+  SiteCommunities_ls[[Realm_Iter]] <- table(CurrCells[,2:3])
+}
+save(SiteCommunities_ls, file = file.path(Dir.Ranges, "SiteCommunities_ls.RData"))
+rm(SpeciesCells_df)
+
+
+
+
+
+install.packages("netassoc")
+library(netassoc)
+
+assoc_net <- make_netassoc_network(obs = SiteCommunities_ls[[1]], verbose = TRUE)
+# plot_netassoc_network(assoc_net$network_all)
+
+
 
 ### AGGREGATION OF SPECIES BY CELLS ----
 #' Loop over all range files
