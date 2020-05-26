@@ -260,7 +260,34 @@ if(!file.exists(file.path(Dir.Ranges, "SpeciesCells_df.RData"))){
   load(file.path(Dir.Ranges, "SpeciesCells_df.RData"))
 }
 
-### OCCURRENCE DATA FRAME BY REALMS ----
+### OCCURRENCE DATA FRAME BY BIOMES IN REALMS ----
+if(!file.exists(file.path(Dir.Ranges, "SpeciesCells_df.RData"))){
+  BiomeRealms <- sort(unique(SpeciesCells_df$BiomesInRealms))
+  SiteCommunities_ls <- as.list(rep(NA, length(BiomeRealms)))
+  names(SiteCommunities_ls) <- BiomeRealms
+  for(Realm_Iter in 1:length(BiomeRealms)){
+    print(BiomeRealms[Realm_Iter])
+    CurrRealm <- BiomeRealms[Realm_Iter]
+    CurrRows <- which(SpeciesCells_df$BiomesInRealms == CurrRealm)
+    CurrCells <- SpeciesCells_df[CurrRows,]
+    SiteCommunities_ls[[Realm_Iter]] <- table(CurrCells[,2:3])
+  }
+  save(SiteCommunities_ls, file = file.path(Dir.Ranges, "SiteCommunities_ls.RData"))
+}else{
+  load(file.path(Dir.Ranges, "SiteCommunities_ls.RData"))
+}
+rm(SpeciesCells_df)
+
+### SPECIES ASSOCIATION NETWORKS ----
+# install.packages("netassoc")
+library(netassoc)
+
+assoc_net <- make_netassoc_network(obs = SiteCommunities_ls[[2]], verbose = TRUE)
+plot_netassoc_network(assoc_net$network_all)
+
+
+
+### OUTPUT ----
 Abbr_Realms <- 1:8
 Full_Realms <- c("Australasia", "Antarctic", "Afrotropics", "IndoMalay", "Nearctic", "Neotropics", "Oceania", "Palearctic")
 Abbr_Biomes <- 1:18
@@ -279,43 +306,3 @@ Full_Biomes <- c("Tropical & Subtropical Moist Broadleaf Forests",
                  "Deserts & Xeric Shrublands",
                  "Mangroves")
 
-
-
-BiomeRealms <- sort(unique(SpeciesCells_df$BiomesInRealms))
-
-SiteCommunities_ls <- as.list(rep(NA, length(BiomeRealms)))
-names(SiteCommunities_ls) <- BiomeRealms
-
-for(Realm_Iter in 1:length(BiomeRealms)){
-  print(BiomeRealms[Realm_Iter])
-  CurrRealm <- BiomeRealms[Realm_Iter]
-  CurrRows <- which(SpeciesCells_df$BiomesInRealms == CurrRealm)
-  CurrCells <- SpeciesCells_df[CurrRows,]
-  SiteCommunities_ls[[Realm_Iter]] <- table(CurrCells[,2:3])
-}
-save(SiteCommunities_ls, file = file.path(Dir.Ranges, "SiteCommunities_ls.RData"))
-rm(SpeciesCells_df)
-
-
-
-
-
-install.packages("netassoc")
-library(netassoc)
-
-assoc_net <- make_netassoc_network(obs = SiteCommunities_ls[[1]], verbose = TRUE)
-# plot_netassoc_network(assoc_net$network_all)
-
-
-
-### AGGREGATION OF SPECIES BY CELLS ----
-#' Loop over all range files
-#' for(Iter_Aggregate in 1:length(list.files(Dir.Ranges))){
-#' check rownames of data frame for whether the species currently itterated on is already presert, if yes - skip
-#' create empty vector of same length as row count of occurence data frame
-#' Load Iter_Aggregate shapefile
-#' Crop and mask Background raster using the shapefile
-#' write "1" to all positions in the vector which correspond to data positions in the cropped & masked raster
-#' cbind vector to occurrence data frame
-#' save data frame in current state
-#' }
