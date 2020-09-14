@@ -69,9 +69,6 @@ if(!file.exists(file.path(Dir.Ranges, "Ranges_ls.RData")) & !file.exists(file.pa
 
 Ecoregions_sf <- st_as_sf(EcoregionsMask) 
 
-
-library(dplyr)
-
 Realms_sf <- Ecoregions_sf %>% 
   group_by(REALM) %>%
   summarise(geometry = sf::st_union(geometry)) %>%
