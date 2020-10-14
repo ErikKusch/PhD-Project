@@ -165,7 +165,7 @@ fit <- stan(file = 'Supplement - StanModel.stan',
             chains = 4,
             warmup = 1000,          # number of warmup iterations per chain
             iter = 5000,            # total number of iterations per chain
-            refresh = 100,         # show progress every 'refresh' iterations
+            refresh = 50,         # show progress every 'refresh' iterations
             control = list(max_treedepth = 10)
 )
 # You will probably get a few error warnings - including one that says certain chains won't have converged, 
