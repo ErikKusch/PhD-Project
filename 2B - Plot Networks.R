@@ -67,7 +67,6 @@ FUN_PlotData_FIA <- function(states = c("DE","MD"), ByYear = FALSE, nCores = par
   return(Interaction_df)
 }
 
-
 FIA_df <- FUN_PlotData_FIA(states = c("DE","MD"), ByYear = TRUE, nCores = parallel::detectCores()/2)
 FIA_df <- FIA_df[-c(which(FIA_df$biomass == 0)),]# remove 0 biomass entries
 plot(log(FIA_df$biomass) ~ rowSums(FIA_df[,-1:-4]))
@@ -131,9 +130,10 @@ FUN_NetInter_Prep <- function(Fitness = "biomass", data = NULL){
   return(stan.data)
 }
 
-
-FIA_StanList <- FUN_NetInter_Prep(Fitness = "biomass", data = FIA_df)
-
+FIA_StanList <- FUN_NetInter_Prep(Fitness = "biomass", data = FIA_df) # for some reason, this doesn't work correctly on the server... old R-version? 
+# str(FIA_StanList)
+# saveRDS(object = FIA_StanList, file = file.path(Dir.Plots, "STANLISTFIA.rds")) # to be executed on home PC
+# FIA_StanList <- readRDS(file = file.path(Dir.Plots, "STANLISTFIA.rds")) # to be executed on server
 
 ########################################################################################################
 
@@ -165,7 +165,7 @@ fit <- stan(file = 'Supplement - StanModel.stan',
             chains = 4,
             warmup = 1000,          # number of warmup iterations per chain
             iter = 5000,            # total number of iterations per chain
-            refresh = 50,         # show progress every 'refresh' iterations
+            refresh = 100,         # show progress every 'refresh' iterations
             control = list(max_treedepth = 10)
 )
 # You will probably get a few error warnings - including one that says certain chains won't have converged, 
