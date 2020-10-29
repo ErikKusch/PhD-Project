@@ -46,7 +46,7 @@ Dir.Ranges.Reptiles <- file.path(Dir.Ranges, "REPTILES")
 Dir.Ranges.Mammals <- file.path(Dir.Ranges, "TERRESTRIAL_MAMMALS")
 Dir.Ranges.Birds <- file.path(Dir.Ranges, "BIRDS")
 Dir.Ranges.Plants <- file.path(Dir.Ranges, "PLANTS")
-DataDirs <- c(Dir.Shapes, Dir.PFTC, Dir.Ranges.Amphibians, Dir.Ranges.Birds, Dir.Ranges.Mammals, Dir.Ranges.Plants, Dir.Ranges.Reptiles, Dir.Plots, Dir.Plots.FIA)
+DataDirs <- c(Dir.Data, Dir.Ranges, Dir.Shapes, Dir.PFTC, Dir.Ranges.Amphibians, Dir.Ranges.Birds, Dir.Ranges.Mammals, Dir.Ranges.Plants, Dir.Ranges.Reptiles, Dir.Plots, Dir.Plots.FIA)
 CreateDir <- sapply(DataDirs, function(x) if(!dir.exists(x)) dir.create(x))
 ## EXPORTS
 Dir.Exports <- file.path(Dir.Base, "2 - Exports")
