@@ -77,7 +77,6 @@ Fun_simdata <- function(Network_df,
     plot_fit <- as.list(rep(NA, length(Plot_species)))
     counter <- 1
     for(k in Plot_species){ # loop over all species at the current plot
-      
       Effect <- 1
       if(Effect == "Fitness"){
         Focal_ActorSpecies <- Network_df$Actor[Network_df$Subject == k] # species that act on focal
@@ -393,6 +392,7 @@ sim_df <- Fun_simdata(Network_df <- data.frame(Actor = c("A", "A", "B", "C", "D"
                       Sim_PlotEffect = FALSE, # if TRUE has a 2/3 chance to either set species fitness to 50% or 150% for all species at individual plots
                       Init = 42 # to nudge seeds for random processes if I run the same specification multiple times and want to get different data sets
                       )
+
 ## REFORMATTING DATA
 StanList_ls <- Fun_StanList(Fitness = "fit", # fitness column
                                   data = sim_df # data frame
@@ -469,6 +469,7 @@ igraph_Interaction_mean <- graph_from_adjacency_matrix(adjmatrix = Interaction_m
                             weighted = TRUE, diag = TRUE, add.colnames = NULL, add.rownames = NA)
 
 plot(igraph_Interaction_mean)
+
 
 
 
