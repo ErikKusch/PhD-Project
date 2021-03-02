@@ -62,7 +62,7 @@ EcoregionsMask <- readOGR(file.path(Dir.Shapes, "WWF_ecoregions", "official", "w
 ### vectors for WWF region naming
 Abbr_Realms <- levels((EcoregionsMask$REALM))
 Full_Realms <- c("Australasia", "Antarctic", "Afrotropics", "IndoMalay", "Nearctic", "Neotropics", "Oceania", "Palearctic")
-Abbr_Biomes <- 1:14
+Abbr_Biomes <- c(1:14, 99, 98)
 Full_Biomes <- c("Tropical & Subtropical Moist Broadleaf Forests",
                  "Tropical & Subtropical Dry Broadleaf Forests",
                  "Tropical & Subtropical Coniferous Forests",
@@ -76,4 +76,16 @@ Full_Biomes <- c("Tropical & Subtropical Moist Broadleaf Forests",
                  "Tundra",
                  "Mediterranean Forests, Woodlands & Scrub",
                  "Deserts & Xeric Shrublands",
-                 "Mangroves")
+                 "Mangroves",
+                 "Snow-Covered/Barren",
+                 "Limnic Bodies of Water")
+
+#### FIA REGIONS -----------------------------------------------------------
+if(!file.exists(file.path(Dir.Shapes, "FIAMask.rds"))){
+  US_shp <- CountryMask[which(CountryMask$NAME == "United States of America"),]
+  FIA_shp <- crop(EcoregionsMask, US_shp) # cropping to
+  saveRDS(FIA_shp, file.path(Dir.Shapes, "FIAMask.rds"))
+}else{
+  FIA_shp <- readRDS(file.path(Dir.Shapes, "FIAMask.rds"))
+}
+
