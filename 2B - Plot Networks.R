@@ -43,7 +43,14 @@ FUN_PlotData_FIA <- function(states = c("DE","MD"), ByYear = FALSE, nCores = par
     print(paste("Handling FIA data for", Full_Biomes[which(Abbr_Biomes == Clip_Iter)]))
     Clip_Shp <- FIAMerged_shp[FIAMerged_shp$BIOME == Clip_Iter, ]
     plot(Clip_Shp, main = Full_Biomes[which(Abbr_Biomes == Clip_Iter)])
-    ClipFIA_df <- clipFIA(db = FIA_df, mask = Clip_Shp, matchEval = TRUE)
+    ClipFIA_df <- NULL
+    try(ClipFIA_df <- clipFIA(db = FIA_df, mask = Clip_Shp, matchEval = TRUE), silent = TRUE)
+    if(is.null(ClipFIA_df)){
+      FIA_ls[[counter2]] <- "No Data"
+      FIA_Fitness_ls[[counter2]] <- "No Data"
+      print("No Data")
+      next()
+    }
     FIA_ls[[counter2]] <- ClipFIA_df
     FIAIter_df <- biomass(db = ClipFIA_df, # which data base to use
                           bySpecies = TRUE, # group by Species
@@ -81,10 +88,11 @@ FUN_PlotData_FIA <- function(states = c("DE","MD"), ByYear = FALSE, nCores = par
       Interaction_df <- cbind(Interaction_df[,1:3], focalID, Interaction_df[,4:dim(Interaction_df)[2]])
     }
     Interaction_df <- Interaction_df[-c(which(Interaction_df$biomass == 0)), ] # remove 0 biomass entries
+    print(paste("Data dimensions:", paste(dim(Interaction_df), collapse = " & ")))
     FIA_Fitness_ls[[counter2]] <- Interaction_df
     counter2 <- counter2 + 1
   }
-  save(FIA_Fitness_ls, FIA_ls, file = file.path(Dir.Plots, "FIA_ls.RData"))
+  save(FIA_Fitness_ls, FIA_ls, file = file.path(Dir.Plots, "FIABiomeData_ls.RData"))
 }
 if(!file.exists(file.path(Dir.Plots, "FIA_ls.RData"))){
   FIA_df <- FUN_PlotData_FIA(states = c("AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"), ByYear = TRUE, nCores = parallel::detectCores()/2)
