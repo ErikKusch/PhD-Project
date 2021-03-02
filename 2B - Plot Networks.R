@@ -7,10 +7,7 @@
 
 ####### FIA DATA RETRIEVAL ---------------------------------------------------------
 FUN_PlotData_FIA <- function(states = c("DE","MD"), ByYear = FALSE, nCores = parallel::detectCores()/2){
-  
-  ### plot numbers with geo-coordinates?!
-  
-  ### EXISTENCE Check!
+  ### EXISTENCE CHECK
   Check_vec <- states %nin% substring(list.files(Dir.Plots.FIA), 1, 2)
   if(length(substring(list.files(Dir.Plots.FIA), 1, 2)) != 0){
     if(unique(substring(list.files(Dir.Plots.FIA), 1, 2) %in% states) != TRUE){stop("Your FIA directory contains data for more than the states you asked to analyse here. Please remove these or change the state argument here to include these files already present.")}
@@ -22,79 +19,97 @@ FUN_PlotData_FIA <- function(states = c("DE","MD"), ByYear = FALSE, nCores = par
     FIA_df <- rFIA::readFIA(dir = Dir.Plots.FIA) # load all of the data in the FIA directory
   }
   
-  FIA_df <- biomass(db = FIA_df, # which data base to use
-                    bySpecies = TRUE, # group by Species
-                    byPlot = TRUE, # group by plot
-                    nCores = nCores # use half the machines cores for this
-  )
+  ## BIOME SHAPE PREPARATION
+  FIAMerged_shp <- aggregate(FIA_shp, by = "BIOME") # Merge shapes according to biome type
+  FIAMerged_shp@data$Names <- Full_Biomes[match(FIAMerged_shp@data$BIOME, Abbr_Biomes)] # Assign corresponding full text biome names
+  FIAPlots_df <- unique(FIA_df$PLOT[, c("LON", "LAT")]) # plot extraction with lat and lon
+  FIAPlots_df <- na.omit(FIAPlots_df) # remove any NA rows
+  ## plot biomes and FIA sites as mapview object
+  Biomes_mv <- mapview(FIAMerged_shp, color = "black", layer.name = "Biomes", zcol = "Names", col.regions = heat.colors)
+  FIA_mv <- mapview(FIAPlots_df, xcol = "LON", ycol = "LAT", legend = FALSE, cex = 3.5, layer.name = "FIA Sites", color = "Black", grid = FALSE)
+  save(Biomes_mv, FIA_mv, FIAPlots_df, FIAMerged_shp, file = file.path(Dir.Plots, "MapData_FIA.RData"))
+  ## may need to run remotes::install_github("r-spatial/mapview") to get this to work
+  mapshot(Biomes_mv+FIA_mv, url = paste0(Dir.PlotNets.FIA, "/FIA_SitesBiomes.html"), fgb = FALSE)
   
-  FIA_df <- FIA_df[,c("pltID", "BIO_ACRE", "SCIENTIFIC_NAME", "nStems", "YEAR")] # select columns we need
-  colnames(FIA_df) <- c("plot", "biomass", "focal", "Number at Plot", "Year") # assign new column names
+  ## MASKING BY BIOMES
+  FIA_Fitness_ls <- as.list(rep(NA, nrow(FIAMerged_shp@data))) # creating an empty list to hold the fitness calculations for each biome separately
+  names(FIA_Fitness_ls) <- FIAMerged_shp@data$BIOME # set names of list elements with biome IDs
+  FIA_Fitness_ls <- FIA_Fitness_ls[!(names(FIA_Fitness_ls) %in% c("98", "99"))] # remove ID 98 and 99 which correspond to non-vegetated areas (lakes and barren areas)
+  FIA_ls <- FIA_Fitness_ls # empty list to hold the clipped FIA data bases
   
-  Species_vec <- unique(FIA_df$focal) # identify all species names
-  
-  if(ByYear == TRUE){
-    FIA_df$plot <- with(FIA_df, paste(plot, Year, sep="_"))
+  ## CALCULATION OF FITNESS AS APPROXIMATED BY BIOMASS
+  counter2 <- 1
+  for(Clip_Iter in as.numeric(names(FIA_ls))){
+    print(paste("Handling FIA data for", Full_Biomes[which(Abbr_Biomes == Clip_Iter)]))
+    Clip_Shp <- FIAMerged_shp[FIAMerged_shp$BIOME == Clip_Iter, ]
+    plot(Clip_Shp, main = Full_Biomes[which(Abbr_Biomes == Clip_Iter)])
+    ClipFIA_df <- clipFIA(db = FIA_df, mask = Clip_Shp, matchEval = TRUE)
+    FIA_ls[[counter2]] <- ClipFIA_df
+    FIAIter_df <- biomass(db = ClipFIA_df, # which data base to use
+                          bySpecies = TRUE, # group by Species
+                          byPlot = TRUE, # group by plot
+                          nCores = nCores # use half the machines cores for this
+    )
+    FIAIter_df <- FIAIter_df[,c("pltID", "BIO_ACRE", "SCIENTIFIC_NAME", "nStems", "YEAR")] # select columns we need
+    colnames(FIAIter_df) <- c("plot", "biomass", "focal", "Number at Plot", "Year") # assign new column names
+    Species_vec <- unique(FIAIter_df$focal) # identify all species names
+    if(ByYear == TRUE){
+      FIAIter_df$plot <- with(FIAIter_df, paste(plot, Year, sep="_"))
+    }
+    FIAIter_df <- FIAIter_df[,-5]
+    Plots_vec <- unique(FIAIter_df$plot) # identify all plot IDs
+    Interaction_ls <- as.list(rep(NA, length = length(Plots_vec))) # establish empty list with one slot for each plot
+    names(Interaction_ls) <- Plots_vec # set name of the list positions to reflect the plotIDs
+    counter <- 1 # create counter to index where to put the data frame created in the loop into the list
+    for(Iter_plot in Plots_vec){ # plot loop: loop over all plots
+      Iter_df <- FIAIter_df[FIAIter_df$plot == Iter_plot, ] # select data for currently focussed plot
+      Iter_df <- group_by(.data = Iter_df, .dots="focal") %>% # group by species
+        summarise_at(.vars = c("biomass", "Number at Plot"), .funs = median) # summarise biomass and number grouped by species
+      Matches_vec <- na.omit(base::match(x = Iter_df$focal, table = Species_vec)) # identify position of matches of species names
+      Counts_mat <- matrix(rep(0, length = dim(Iter_df)[1]*length(Species_vec)), nrow = dim(Iter_df)[1]) # create empty matrix
+      colnames(Counts_mat) <- Species_vec # assign column names of species names
+      Counts_mat[, Matches_vec] <- rep(Iter_df$`Number at Plot`, each = dim(Iter_df)[1]) # save number of individuals to matrix
+      Interaction_ls[[counter]] <- cbind(as.data.frame(Iter_df[ ,-3]), as.data.frame(Counts_mat)) # combine matrix with biomass data
+      counter <- counter +1 # raise counter
+    }
+    Interaction_df <- bind_rows(Interaction_ls, .id = "plot") # combine data frames in list elements into one big data frame
+    Interaction_df <- cbind(Interaction_df$plot, Interaction_df$biomass, Interaction_df$focal, Interaction_df[,4:dim(Interaction_df)[2]])
+    colnames(Interaction_df)[1:3] <- c("plot", "biomass", "focal")
+    
+    if(ByYear == TRUE){
+      focalID <- with(Interaction_df, paste(focal, plot, sep="_"))
+      Interaction_df <- cbind(Interaction_df[,1:3], focalID, Interaction_df[,4:dim(Interaction_df)[2]])
+    }
+    Interaction_df <- Interaction_df[-c(which(Interaction_df$biomass == 0)), ] # remove 0 biomass entries
+    FIA_Fitness_ls[[counter2]] <- Interaction_df
+    counter2 <- counter2 + 1
   }
-  
-  FIA_df <- FIA_df[,-5]
-  
-  Plots_vec <- unique(FIA_df$plot) # identify all plot IDs
-  
-  Interaction_ls <- as.list(rep(NA, length = length(Plots_vec))) # establish empty list with one slot for each plot
-  names(Interaction_ls) <- Plots_vec # set name of the list positions to reflect the plotIDs
-  counter <- 1 # create counter to index where to put the data frame created in the loop into the list
-  for(Iter_plot in Plots_vec){ # plot loop: loop over all plots
-    Iter_df <- FIA_df[FIA_df$plot == Iter_plot, ] # select data for currently focussed plot
-    Iter_df <- group_by(.data = Iter_df, .dots="focal") %>% # group by species
-      summarise_at(.vars = c("biomass", "Number at Plot"), .funs = median) # summarise biomass and number grouped by species
-    Matches_vec <- na.omit(base::match(x = Iter_df$focal, table = Species_vec)) # identify position of matches of species names
-    Counts_mat <- matrix(rep(0, length = dim(Iter_df)[1]*length(Species_vec)), nrow = dim(Iter_df)[1]) # create empty matrix
-    colnames(Counts_mat) <- Species_vec # assign column names of species names
-    Counts_mat[, Matches_vec] <- rep(Iter_df$`Number at Plot`, each = dim(Iter_df)[1]) # save number of individuals to matrix
-    Interaction_ls[[counter]] <- cbind(as.data.frame(Iter_df[ ,-3]), as.data.frame(Counts_mat)) # combine matrix with biomass data
-    counter <- counter +1 # raise counter
-  }
-  
-  Interaction_df <- bind_rows(Interaction_ls, .id = "plot") # combine data frames in list elements into one big data frame
-  Interaction_df <- cbind(Interaction_df$plot, Interaction_df$biomass, Interaction_df$focal, Interaction_df[,4:dim(Interaction_df)[2]])
-  colnames(Interaction_df)[1:3] <- c("plot", "biomass", "focal")
-  
-  if(ByYear == TRUE){
-    focalID <- with(Interaction_df, paste(focal, plot, sep="_"))
-    Interaction_df <- cbind(Interaction_df[,1:3], focalID, Interaction_df[,4:dim(Interaction_df)[2]])
-  }
-  return(Interaction_df)
+  save(FIA_Fitness_ls, FIA_ls, file = file.path(Dir.Plots, "FIA_ls.RData"))
+}
+if(!file.exists(file.path(Dir.Plots, "FIA_ls.RData"))){
+  FIA_df <- FUN_PlotData_FIA(states = c("AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"), ByYear = TRUE, nCores = parallel::detectCores()/2)
+}else{
+  load(file.path(Dir.Plots, "FIA_ls.RData")))
 }
 
-FIA_df <- FUN_PlotData_FIA(states = c("DE","MD"), ByYear = TRUE, nCores = parallel::detectCores()/2)
-FIA_df <- FIA_df[-c(which(FIA_df$biomass == 0)),]# remove 0 biomass entries
-plot(log(FIA_df$biomass) ~ rowSums(FIA_df[,-1:-4]))
-########################################################################################################
-
+####### STAN LIST PREPARING ---------------------------------------------------------
 FUN_NetInter_Prep <- function(Fitness = "biomass", data = NULL){
-  
-  
   # set up the data in list format as preferred by STAN:
   stan.data <- list()
-  
   # create a matrix which tallies the number of observations for each focal and neighbour
   Counts <- data[ , -c(1:4)] # remove first four columns (plot, fitness proxy, focal, focalID)
   Counts[Counts>0] <- 1
   Counts <- split(Counts, data$focal)
-  obs <- do.call(rbind, lapply(Counts, colSums))
-  
+  obs <- do.call(rbind, lapply(Counts, colSums)
   # integers
   stan.data$S <- length(unique(data$focal))  # number of species
   stan.data$N <- nrow(data)                  # number of observations
   stan.data$K <- ncol(data[ , -c(1:4)])      # number of neighbours
   stan.data$I <- length(obs[obs>0])        # number of observed interactions
   # stan.data$Z <- stan.data$S*stan.data$K   # total number of possible interactions         
-  
   # vectors 
   stan.data$species_ID <- as.numeric(as.factor(data$focal))
   stan.data$fitness <- data[,Fitness]
-  
   # set up indices to place observed interaction in the alpha matrix
   # first count the number of interactions observed for each focal species
   stan.data$inter_per_species <- obs
@@ -118,24 +133,23 @@ FUN_NetInter_Prep <- function(Fitness = "biomass", data = NULL){
     # row index in the alpha matrix for each observed interaction
     stan.data$irow <- c(stan.data$irow, rep(s, stan.data$inter_per_species[[s]]))
   }
-  
   # model matrix 
   stan.data$X <- as.matrix(data[ , -c(1:4)])  
-  
   # Number of observations per interaction - for model weighting?
   stan.data$Obs <- as.vector(apply(obs, 1, c))   # vector of the number of observations for each interactions
   stan.data$Obs <- stan.data$Obs[stan.data$Obs>0] # remove unobserved interactions
-  
-  
   return(stan.data)
 }
 
 FIA_StanList <- FUN_NetInter_Prep(Fitness = "biomass", data = FIA_df) # for some reason, this doesn't work correctly on the server... old R-version? 
+
+FIA_StanList <- FUN_NetInter_Prep(Fitness = "biomass", data = FIA_Fitness_ls[[1]])
+
 # str(FIA_StanList)
 # saveRDS(object = FIA_StanList, file = file.path(Dir.Plots, "STANLISTFIA.rds")) # to be executed on home PC
 # FIA_StanList <- readRDS(file = file.path(Dir.Plots, "STANLISTFIA.rds")) # to be executed on server
 
-########################################################################################################
+####### EXECUTING MALYON BIMLER'S METHOD ---------------------------------------------------------
 
 data = FIA_df
 
