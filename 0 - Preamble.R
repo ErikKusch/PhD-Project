@@ -50,9 +50,11 @@ DataDirs <- c(Dir.Data, Dir.Ranges, Dir.Shapes, Dir.PFTC, Dir.Ranges.Amphibians,
 CreateDir <- sapply(DataDirs, function(x) if(!dir.exists(x)) dir.create(x))
 ## EXPORTS
 Dir.Exports <- file.path(Dir.Base, "2 - Exports")
-Dir.Richness <- file.path(Dir.Exports, "1 - Richness")
+Dir.PlotNets <- file.path(Dir.Exports, "2 - Plot Networks")
+Dir.PlotNets.FIA <- file.path(Dir.PlotNets, "FIA")
+Dir.Richness <- file.path(Dir.Exports, "X - Richness")
 Dir.Richness.Current <- file.path(Dir.Richness, "1 - Current")
-ExportDirs <- c(Dir.Exports, Dir.Richness, Dir.Richness.Current)
+ExportDirs <- c(Dir.Exports, Dir.PlotNets, Dir.PlotNets.FIA, Dir.Richness, Dir.Richness.Current)
 CreateDir <- sapply(ExportDirs, function(x) if(!dir.exists(x)) dir.create(x))
 rm(list = c("CreateDir", "ExportDirs", "DataDirs"))
 
