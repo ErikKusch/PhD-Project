@@ -23,9 +23,9 @@ FUN_PlotData_FIA <- function(states = c("DE","MD"), ByYear = FALSE, nCores = par
   }
   
   FIA_df <- biomass(db = FIA_df, # which data base to use
-                   bySpecies = TRUE, # group by Species
-                   byPlot = TRUE, # group by plot
-                   nCores = nCores # use half the machines cores for this
+                    bySpecies = TRUE, # group by Species
+                    byPlot = TRUE, # group by plot
+                    nCores = nCores # use half the machines cores for this
   )
   
   FIA_df <- FIA_df[,c("pltID", "BIO_ACRE", "SCIENTIFIC_NAME", "nStems", "YEAR")] # select columns we need
@@ -142,6 +142,7 @@ data = FIA_df
 
 library(rstan)
 rstan_options(auto_write = TRUE)
+rstan_options(javascript = FALSE)
 options(mc.cores = parallel::detectCores()) 
 
 # install.packages(c("coda","mvtnorm","devtools","loo","dagitty"))
