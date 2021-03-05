@@ -28,7 +28,9 @@ package_vec <- c(
   "gameofthrones", #v1.0.2; for colour palettes
   "dplyr", #v1.0.2; for data manipulation
   "stringr", #v1.4.0; for padding numbers
-  "rFIA" #0.2.5; for downloading and using Forest Inventory Analysis (FIA) data
+  "rFIA", #0.2.5; for downloading and using Forest Inventory Analysis (FIA) data
+  "rethinking", #2.13; for Bayesian methdology and model inspection
+  "rstan" #2.12.2; for access to stan
 )
 sapply(package_vec, install.load.package)
 
