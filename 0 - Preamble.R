@@ -30,7 +30,13 @@ package_vec <- c(
   "stringr", #v1.4.0; for padding numbers
   "rFIA", #0.2.5; for downloading and using Forest Inventory Analysis (FIA) data
   "rethinking", #2.13; for Bayesian methdology and model inspection
-  "rstan" #2.12.2; for access to stan
+  "rstan", #2.12.2; for access to stan
+  "dagitty", #0.3-0; for DAG drawing
+  "ggdag", # 0.2.3; for DAG drawing in ggplot environment
+  "data.table", #1.12.8; for DAG building
+  "igraph", #1.2.5; for nicer graph visualisation
+  "pheatmap", #1.0.12; for heatmaps of interactions
+  "ggraph" #2.0.5 ; for igraph ggplot layouts
 )
 sapply(package_vec, install.load.package)
 
