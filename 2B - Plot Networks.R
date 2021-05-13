@@ -357,16 +357,16 @@ stan_post_pred_check <- function(post.draws,
 }
 
 ################# RUN NETWORK METHOD FOR EACH FIA SUBSET ########################################### --------------------------
-nSamples <- 10000
-nWarmup <- 500
-nChains <- 5
+nSamples <- 7000
+nWarmup <- 700
+nChains <- 4
 
 FIABiomes_fs <- list.files(path = Dir.Plots, pattern = "FIABiome")
 
-# probably only want to run this for 3, 6, 7, 10, 11
+# probably only want to run this for 3, 6, 7, 10, 11 ==> c(3,6,7,11)
 # Model_Iter = 11 # or 7&10&11 for high data
 
-for(Model_Iter in c(3,6,7,11)){ # 10 for biggest data set
+for(Model_Iter in 1:length(FIABiomes_fs)){ # 10 for biggest data set
   load(file.path(Dir.Plots, FIABiomes_fs[[Model_Iter]]))
   print(BiomeName)
   print(dim(Interaction_df))
