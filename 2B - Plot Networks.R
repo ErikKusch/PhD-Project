@@ -438,8 +438,8 @@ for(Model_Iter in 1:length(FIABiomes_fs)){ # 10 for biggest data set
   # inter_mat is now a 3 dimensional array, where rows = focals, columns = neighbours and 3rd dim = samples from the posterior; inter_mat[ , , 1] should return a matrix consisting of one sample for every interaction 
   param.vec <- c('a', 'beta_ij', 'effect', 'response', 're', 'inter_mat', 'mu', 'sigma')
   try(stan_model_check(fit = fit,
-                   results_folder = Dir.FIABiome,
-                   params = param.vec))
+                       results_folder = Dir.FIABiome,
+                       params = param.vec))
   # stan_post_pred_check(post.draws = joint.post.draws, # error here on missing data!!!
   #                       results_folder = Dir.Malyon,
   #                       stan.data = StanList_ls)
