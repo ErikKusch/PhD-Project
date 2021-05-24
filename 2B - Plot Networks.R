@@ -384,7 +384,12 @@ for(Model_Iter in 1:length(FIABiomes_fs)){ # 10 for biggest data set
   
   Mal_df <- Test_df[,-5] # data frame without time
   
-  Mal_df <- Mal_df[, -(which(colnames(Mal_df)[-c(1:4)] %nin% Mal_df$focal)+4)]
+  OmitCols <- -(which(colnames(Mal_df)[-c(1:4)] %nin% Mal_df$focal)+4)
+  if(length(OmitCols) != 0){
+    Mal_df <- Mal_df[, OmitCols]
+  }else{
+    Mal_df <- Mal_df
+  }
   
   FIA_StanList <- Fun_StanList(Fitness = "fit", data = Mal_df)
   
