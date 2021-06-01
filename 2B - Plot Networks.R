@@ -372,6 +372,10 @@ for(Model_Iter in 1:length(FIABiomes_fs)){ # 10 for biggest data set
   print(dim(Interaction_df))
   
   Dir.FIABiome <- file.path(Dir.PlotNets.FIA, FIABiomes_fs[[Model_Iter]])
+  if(dir.exists(DDir.FIABiome)){
+    warning(paste(FIABiomes_fs[[Model_Iter]], "directory already exists. Skipping."))
+    next()
+  }
   dir.create(Dir.FIABiome)
   
   Test_df <- Interaction_df[Interaction_df$biomass != 0, ]
