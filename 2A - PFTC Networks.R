@@ -317,11 +317,12 @@ Treatments_df <- data.frame(Treatment = sapply(str_split(Mal_df$PlotID, "_"), "[
                             Plot = sapply(str_split(Mal_df$PlotID, "_"), "[[", 1)
 )
 Treatments_vec <- c("ALL", as.character(unique(Treatments_df$Treatment)), as.character(unique(Treatments_df$Plot)))           
+Mal_df[is.na(Mal_df)] <- 0
 
 for(Treatment in Treatments_vec){
-  
+  Run_df <- Mal_df
   if(Treatment != "ALL"){
-    Mal_df <- Mal_df[which(Treatments_df[,1] == Treatment | Treatments_df[,2] == Treatment), ]
+    Run_df <- Run_df[which(Treatments_df[,1] == Treatment | Treatments_df[,2] == Treatment), ]
   }
   
   Dir.PlotNets.PFTC.Iter <- file.path(Dir.PlotNets.PFTC, Treatment)
@@ -329,16 +330,15 @@ for(Treatment in Treatments_vec){
     stop(paste("PFTC models already run for Treatment/Plot, ", Treatment,". You can find them here:"), Dir.PlotNets.PFTC.Iter)
   }
   dir.create(Dir.PlotNets.PFTC.Iter)
-  Mal_df[is.na(Mal_df)] <- 0
   OmitCols <- -(which(colnames(Mal_df)[-c(1:4)] %nin% Mal_df$focal)+4)
   if(length(OmitCols) != 0){
-    Mal_df <- Mal_df[, OmitCols]
+    Run_df <- Run_df[, OmitCols]
   }else{
-    Mal_df <- Mal_df
+    Run_df <- Run_df
   }
-  Mal_df <- Mal_df[Mal_df$fit != 0, ]
+  Run_df <- Run_df[Run_df$fit != 0, ]
   
-  FIA_StanList <- Fun_StanList(Fitness = "fit", data = Mal_df)
+  FIA_StanList <- Fun_StanList(Fitness = "fit", data = Run_df)
   
   #### Preferences
   rstan_options(auto_write = TRUE)
@@ -346,9 +346,9 @@ for(Treatment in Treatments_vec){
   options(mc.cores = nChains) 
   
   ## CHECKING DATA
-  focalID <- unique(Mal_df$focal)
-  neighbourID <- colnames(Mal_df[ , -c(1:4)])
-  Fun_PreCheck(data = Mal_df)
+  focalID <- unique(Run_df$focal)
+  neighbourID <- colnames(Run_df[ , -c(1:4)])
+  Fun_PreCheck(data = Run_df)
   ## RUNNING MODEL
   fit <- stan(file = 'Supplement - StanModel.stan',
               data =  FIA_StanList,               # named list of data
