@@ -317,6 +317,7 @@ Treatments_df <- data.frame(Treatment = sapply(str_split(Mal_df$PlotID, "_"), "[
                             Plot = sapply(str_split(Mal_df$PlotID, "_"), "[[", 1)
 )
 Treatments_vec <- c("ALL", as.character(unique(Treatments_df$Treatment)), as.character(unique(Treatments_df$Plot)))           
+Treatments_vec <- Treatments_vec[Treatments_vec != "NA"]
 Mal_df[is.na(Mal_df)] <- 0
 
 for(Treatment in Treatments_vec){
@@ -327,7 +328,8 @@ for(Treatment in Treatments_vec){
   
   Dir.PlotNets.PFTC.Iter <- file.path(Dir.PlotNets.PFTC, Treatment)
   if(dir.exists(Dir.PlotNets.PFTC.Iter)){
-    stop(paste("PFTC models already run for Treatment/Plot, ", Treatment,". You can find them here:"), Dir.PlotNets.PFTC.Iter)
+    print(paste("PFTC models already run for Treatment/Plot, ", Treatment,". You can find them here:", Dir.PlotNets.PFTC.Iter))
+    next()
   }
   dir.create(Dir.PlotNets.PFTC.Iter)
   OmitCols <- -(which(colnames(Mal_df)[-c(1:4)] %nin% Mal_df$focal)+4)
@@ -424,6 +426,10 @@ for(Treatment in Treatments_vec){
   ))
   
   Interactions_DAG <- Interactions_DAG[abs(apply(Signs_DAG, 1, sum)) == 3, ]
+  if(nrow(Interactions_DAG) == 0){
+    print(paste("No significantly positive or negative interactions for treatment", Treatment))
+    next()
+  }
   
   Interactions_DAG$Actor <- gsub(x = Interactions_DAG$Actor, pattern = " ", replacement = "_")
   Interactions_DAG$Subject <- gsub(x = Interactions_DAG$Subject, pattern = " ", replacement = "_")
