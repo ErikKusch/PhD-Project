@@ -2,7 +2,7 @@
 # PROJECT: [PhD; Preparations] 
 # CONTENTS: Packages and Directories
 # AUTHOR: Erik Kusch
-# EDIT: 17/08/2020
+# EDIT: 30/06/2021
 # ####################################################################### #
 ####### PACKAGES ---------------------------------------------------------
 #### Packages
@@ -36,7 +36,12 @@ package_vec <- c(
   "data.table", #1.12.8; for DAG building
   "igraph", #1.2.5; for nicer graph visualisation
   "pheatmap", #1.0.12; for heatmaps of interactions
-  "ggraph" #2.0.5 ; for igraph ggplot layouts
+  "ggraph", #2.0.5 ; for igraph ggplot layouts
+  "tidyverse", ##  added after rostock retreat for network visualisation purposes
+  "scales",##  added after rostock retreat for network visualisation purposes
+  "dagitty",##  added after rostock retreat for network visualisation purposes
+  "ggdag",##  added after rostock retreat for network visualisation purposes
+  "visNetwork"##  added after rostock retreat for network visualisation purposes
 )
 sapply(package_vec, install.load.package)
 
