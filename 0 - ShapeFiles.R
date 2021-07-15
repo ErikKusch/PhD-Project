@@ -35,19 +35,19 @@ if(!file.exists(file.path(Dir.Shapes, "CountryMask.zip"))){ # if land mask has n
 }
 CountryMask <- readOGR(Dir.Shapes, "ne_10m_admin_0_countries", verbose = FALSE) # read land mask in
 
-#### LAKE MASK -----------------------------------------------------------
-if(!file.exists(file.path(Dir.Shapes, "LakeMask.zip"))){ # if lake mask has not been downloaded yet
-  download.file("https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_lakes.zip", destfile = paste(Dir.Shapes, "LakeMask.zip", sep="/")) # download cultural vector
-  unzip(paste(Dir.Shapes, "LakeMask.zip", sep="/"), exdir = Dir.Shapes) # unzip the data
-}
-LakeMask <- readOGR(Dir.Shapes, "ne_10m_lakes", verbose = FALSE) # read lake mask in
+# #### LAKE MASK -----------------------------------------------------------
+# if(!file.exists(file.path(Dir.Shapes, "LakeMask.zip"))){ # if lake mask has not been downloaded yet
+#   download.file("https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_lakes.zip", destfile = paste(Dir.Shapes, "LakeMask.zip", sep="/")) # download cultural vector
+#   unzip(paste(Dir.Shapes, "LakeMask.zip", sep="/"), exdir = Dir.Shapes) # unzip the data
+# }
+# LakeMask <- readOGR(Dir.Shapes, "ne_10m_lakes", verbose = FALSE) # read lake mask in
 
-#### RIVER MASK -----------------------------------------------------------
-if(!file.exists(file.path(Dir.Shapes, "RiversMask.zip"))){ # if rivers mask has not been downloaded yet
-  download.file("https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_rivers_lake_centerlines_scale_rank.zip", destfile = paste(Dir.Shapes, "RiversMask.zip", sep="/")) # download cultural vector
-  unzip(paste(Dir.Shapes, "RiversMask.zip", sep="/"), exdir = Dir.Shapes) # unzip the data
-}
-RiversMask <- readOGR(Dir.Shapes, "ne_10m_rivers_lake_centerlines_scale_rank", verbose = FALSE) # read river mask in
+# #### RIVER MASK -----------------------------------------------------------
+# if(!file.exists(file.path(Dir.Shapes, "RiversMask.zip"))){ # if rivers mask has not been downloaded yet
+#   download.file("https://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_rivers_lake_centerlines_scale_rank.zip", destfile = paste(Dir.Shapes, "RiversMask.zip", sep="/")) # download cultural vector
+#   unzip(paste(Dir.Shapes, "RiversMask.zip", sep="/"), exdir = Dir.Shapes) # unzip the data
+# }
+# RiversMask <- readOGR(Dir.Shapes, "ne_10m_rivers_lake_centerlines_scale_rank", verbose = FALSE) # read river mask in
 
 #### PROTECTED AREAS MASK, this data set is just tooo big!!!
 # ### downloaded from https://www.protectedplanet.net/ since download through R doesn't seem to work

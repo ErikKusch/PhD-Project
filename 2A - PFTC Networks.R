@@ -1,91 +1,165 @@
-# ####################################################################### #
-# PROJECT: [PhD; 2A - PFTC NETWORKS]
-# CONTENTS: Generate PFTC species-association/-interaction networks
-# AUTHOR: Erik Kusch
-# EDIT: 30/06/2021
-# ####################################################################### #
+#' ####################################################################### #
+#' PROJECT: [PhD; 2A - PFTC NETWORKS] 
+#' CONTENTS: 
+#'  - Generate PFTC species-association/-interaction networks
+#'  DEPENDENCIES:
+#'  - 0 - Preamble.R
+#'  - X - Functions_Bayes.R
+#'  - X - Functions_Plotting.R
+#'  - PFTC3-Puna-PFTC5_Peru_2018-2020_LeafTraits_clean.csv (available from PFTC group efforts; https://osf.io/hjpwt/)
+#'  - PU.10_PFTC3.10_2020_Peru_Coordinates.xlsx (available from PFTC group efforts; https://osf.io/uk85w/)
+#' AUTHOR: [Erik Kusch]
+#' ####################################################################### #
 
+# PREAMBLE ================================================================
 rm(list=ls())
-####### PREAMBLE + SHAPES + REFERENCES ---------------------------------------------------------
+
+## Sourcing ---------------------------------------------------------------
 source("0 - Preamble.R")
 # source("0 - ShapeFiles.R")
 source("X - Functions_Plotting.R")
 source("X - Functions_Bayes.R")
+source("X - Environment.R")
+## Bayes Settings ---------------------------------------------------------
 nSamples <- 7000
 nWarmup <- 700
 nChains <- 4
 
-####### PFTC METADATA ---------------------------------------------------------
-if(file.exists(file.path(Dir.PFTC, "Metadata.csv"))){
-  Metadata_df <- read.csv(file.path(Dir.PFTC, "Metadata.csv"))
-}else{
-  Metadata_df <- data.frame(Site = rep(c("WAY", "TRE", "ACJ", "PIL", "QUE", "OCC"), 
-                                       c(10, 10, 10, 13, 5, 5)),
-                            Plot = c(rep(1:5, 8), 1:3, rep(1:5, 2)),
-                            Treatment = c(rep(c("B", "C", "C", "BB", "B", "C", "B", "C"), each = 5), "BB", "BB", "BB", rep(c("B", "C"), each = 5)),
-                            BurnYear = c(rep(c(2007, NA, NA, 2018, 2005, NA, 2007, NA), each = 5), 2013, 2013, 2013, rep(c(NA, NA), each = 5)), 
-                            Lat = c(-13.179917, -13.179978, -13.180036, -13.180092, NA, -13.180406, -13.180430, -13.180457, -13.180527, -13.180580, -13.119746, -13.119733, -13.119713, -13.119695, -13.119707, -13.138776, -13.138797, -13.138823, -13.138837, -13.138871, -13.169344, -13.169347, -13.169447, -13.169483, -13.169548, -13.176034, -13.176100, -13.176134, -13.176195, -13.176252, -13.151583, -13.151576, -13.151582, -13.151584, -13.151593, -13.151610, -13.151633, -13.151780, -13.151791, -13.151803, -13.151819, -13.151832, -13.151323, -13.213786, -13.213841, -13.214201, -13.214146, -13.214258, -13.450887, -13.450843, -13.450800, -13.450756, -13.450745),
-                            Lon = c(-71.588118, -71.588188, -71.588263, -71.588355, NA, -71.589709, -71.589752, -71.589806, -71.589873, -71.589928, -71.620771, -71.620810, -71.620874, -71.620927, -71.620930, NA, NA, NA, NA, NA, -71.634001, -71.634004, -71.634022, -71.634032, -71.634030, -71.628828, -71.628834, -71.628834, -71.628844, -71.628819, -71.640710, -71.640552, -71.640513, -71.640511, -71.640514, -71.640462, -71.640395, -71.640027, -71.639945, -71.639885, -71.639813, -71.639748, -71.640354, -71.619294, -71.619348, -71.619384, -71.619396, -71.619377, -71.741101, -71.741050, -71.741017, -71.740969, -71.740922),
-                            Elevation = c(3071.7, 3073.1, 3077.1, 3078.8, NA, 3118.0, 3120.3, 3121.0, 3123.3, 3125.0, 3714.3, 3714.8, 3714.7, 3714.7, 3714.6, 3618.2, 3619.1, 3619.4, 3620.3, 3621.3, 3444.1, 3444.2, 3446.3, 3447.3, 3447.7, 3487.4, 3487.7, 3489.0, 3490.0, 3492.4, 3626.7, 3687.4, 3687.0, 3686.9, 3686.8, 3685.5, 3683.5, 3673.3, 3671.2, 3669.6, 3665.4, 3665.5, 3694.3, 3882.9, 3884.3, 3890.0, 3889.8, 3893.1, 4384.3, 4382.4, 4380.0, 4382.0, 4385.8)
-  )
-  write.csv(Metadata_df, file.path(Dir.PFTC, "Metadata.csv"))
-}
-
-####### PFTC RAW DATA ---------------------------------------------------------
-## load and limit data
-# Raw_df <- read.csv(file.path(Dir.PFTC, "PFTC3.1_CommunityCover_2018_Peru.csv")) # cover of species
-Raw_df <- read.csv(file.path(Dir.PFTC, "PFTC3.7_Traits_2018_Peru_cleaned.csv")) # trait expressions
-Weights_df <- Raw_df[,c("Site", "Treatment", "PlotID", "Taxon", "Wet_Mass_Total_g", "Individual_nr")]
-## create backbone for intrinsic fitness data frame
-Mal_df <- with(Weights_df, data.frame(
-  PlotID = paste(Site, Treatment, PlotID, sep = "_"),
-  fit = Wet_Mass_Total_g,
-  focal = Taxon,
-  focalID = paste(Taxon, Individual_nr, Site, Treatment, PlotID, sep = "_")
-  )
-)
-## create abundance data (to be appended to backbone data frame)
-Abund_df <- aggregate(Individual_nr~Site+Treatment+PlotID+Taxon, data = Weights_df, FUN = max)
-Abund_df$PlotID <- with(Abund_df, paste(Site, Treatment, PlotID, sep = "_"))
-## create columns to hold abundance of species at each plot
-Mal_df <- cbind(Mal_df, matrix(rep(NA, dim(Mal_df)[1] * length(unique(Abund_df$Taxon))), nrow = dim(Mal_df)[1]))
-colnames(Mal_df)[-1:-4] <- as.character(unique(Abund_df$Taxon))
-## add abundances to each plot for each species
-for(i in 1:nrow(Abund_df)){
-  PlotRows <- which(Mal_df$PlotID == Abund_df$PlotID[i])
-  FocalCol <- which(colnames(Mal_df) == Abund_df$Taxon[i])
-  Mal_df[PlotRows,FocalCol] <- Abund_df$Individual_nr[i]
-}
-
-################# RUN NETWORK METHOD  ########################################### --------------------------
-Treatments_df <- data.frame(Treatment = sapply(str_split(Mal_df$PlotID, "_"), "[[", 2),
-                            Plot = sapply(str_split(Mal_df$PlotID, "_"), "[[", 1)
-)
-Treatments_vec <- c("ALL", as.character(unique(Treatments_df$Treatment)), as.character(unique(Treatments_df$Plot)))           
-Treatments_vec <- Treatments_vec[Treatments_vec != "NA"]
-Mal_df[is.na(Mal_df)] <- 0
-
-for(Treatment in Treatments_vec){
-  Run_df <- Mal_df
-  if(Treatment != "ALL"){
-    Run_df <- Run_df[which(Treatments_df[,1] == Treatment | Treatments_df[,2] == Treatment), ]
+# DATA ====================================================================
+## PFTC META & CLIMATEDATA ------------------------------------------------
+## check if bioclimatic data has already been established on hard drive
+if(!file.exists(file.path(Dir.PFTC, "Metadata_df.csv"))){ # bioclimatic data not established yet
+  if(!file.exists(file.path(Dir.PFTC, "PU.10_PFTC3.10_2020_Peru_Coordinates.xlsx"))){
+    download.file(url = "https://osf.io/uk85w/download", 
+                  destfile = file.path(Dir.PFTC, "PU.10_PFTC3.10_2020_Peru_Coordinates.xlsx"), mode = "wb")
   }
+  Metadata_df <- as.data.frame(readxl::read_xlsx(file.path(Dir.PFTC, "PU.10_PFTC3.10_2020_Peru_Coordinates.xlsx"))) # read metadata file, available here https://osf.io/uk85w/
+  Metadata_df$SiteID <- with(Metadata_df, paste(Site, Treatment, PlotID, sep = "_")) # create ID column which combines site, treatment, and plotid
+  Metadata_df$Year <- 2019 # set observation years to 2018 for all sites (that was the field season most of the data was collected throughout)
+  BioClim_df <- as.data.frame(matrix(rep(NA, nrow(Metadata_df)*19), ncol = 19)) # establish empty data frame for bioclimatic information
+  colnames(BioClim_df) <- paste0("BIO", 1:19) # name columns in bioclimatic data frame
+  Metadata_df <- cbind(Metadata_df, BioClim_df) # combine data frames to handle just one big object
+  ## download and compute bioclimatic data with user-defined function
+  Metadata_df <- FUN.ClimData(Data = Metadata_df,
+               ID = "SiteID",
+               Lat = "Latitude",
+               Lon = "Longitude",
+               Year = "Year",
+               Cores = numberOfCores,
+               Dir = Dir.PFTC,
+               Shape = NULL,
+               FileName = "Metadata_df",
+               force = FALSE,
+               rawdata = FALSE)
   
-  Dir.PlotNets.PFTC.Iter <- file.path(Dir.PlotNets.PFTC, Treatment)
+}else{ # bioclimatic data has been established
+  Metadata_df <- read.csv(file.path(Dir.PFTC, "Metadata_df.csv")) # load the metadata with attached bioclimatic data
+}
+
+## PFTC RAW DATA ----------------------------------------------------------
+## download PFTC data if needed
+if(!file.exists(file.path(Dir.PFTC, "PFTC3-Puna-PFTC5_Peru_2018-2020_LeafTraits_clean.csv"))){
+  download.file(url = "https://osf.io/hjpwt/download", 
+                destfile = file.path(Dir.PFTC, "PFTC3-Puna-PFTC5_Peru_2018-2020_LeafTraits_clean.csv"))
+}
+Raw_df <- read.csv(file.path(Dir.PFTC, "PFTC3-Puna-PFTC5_Peru_2018-2020_LeafTraits_clean.csv")) # load pftc data
+Raw_df <- Raw_df[Raw_df$trait == "dry_mass_g", c("site", "treatment", "plot_id", "taxon", "trait", "value")] # only dry biomass rows and select only relevant columns for speedier data handling 
+Raw_df$SiteID <- with(Raw_df, paste(site, treatment, plot_id, sep = "_")) # create SiteID index
+Weights_df <- Raw_df[,c("SiteID", "taxon", "value")] # limit data to necessary parts
+
+## MODEL DATA FRAMES -------------------------------------------------------
+### INDEX ---------------------------------------------
+Index_df <- Weights_df
+Index_df <- na.omit(Index_df) # remove NA rows
+colnames(Index_df) <- c("SiteID", "Species", "Outcome")
+##!!! should probably remove species not recognized by taxonomy here
+
+### NEIGHBOURS ----------------------------------------
+## aggregating predictors of individual plants at plots to species-level means
+Neigh_df <- aggregate.data.frame(x = Index_df$Outcome, 
+                                 by = list(Index_df$SiteID, Index_df$Species), 
+                                 FUN = "mean")
+colnames(Neigh_df) <- c("SiteID", "Species", "Predictor") # assign more readable column names
+## make data frame wide for clearer representation of data
+Neigh_df <- reshape(data = Neigh_df, direction = "wide", 
+                    idvar = "SiteID", timevar = "Species")
+colnames(Neigh_df) <- gsub(colnames(Neigh_df), pattern = "Predictor.", replacement = "") # fix column names which reshape() messed up
+
+### ENVIRONMENT ---------------------------------------
+## isolating only climate information
+Envir_df <- Metadata_df[,c("SiteID",paste0("BIO", 1:19))]
+##!!! should probably remove collinear variables here
+#LinCombs <- caret::findLinearCombos(na.omit(Envir_df[, -1]))[["linearCombos"]][[1]] # find which columns to remove according to https://stackoverflow.com/questions/34929208/how-can-one-list-pairs-of-perfectly-collinear-numeric-vectors-in-a-data-frame
+#Envir_df <- Envir_df[, -LinCombs-1]
+
+# ANALYSIS ================================================================
+## TREATMENT IDENIFICATION ------------------------------------------------
+## split SiteID so we can identify observations by Site and Treatment separately 
+Treatments_df <- data.frame(Treatment = sapply(str_split(Index_df$SiteID, "_"), "[[", 2),
+                            Plot = sapply(str_split(Index_df$SiteID, "_"), "[[", 1)
+)
+Treatments_vec <- c("ALL", as.character(unique(Treatments_df$Treatment)), as.character(unique(Treatments_df$Plot))) # find treatmend and site identifiers
+Treatments_vec <- Treatments_vec[Treatments_vec != "NA"] # remove NA identifier
+
+## TREATMENT LOOP ---------------------------------------------------------
+## loop over all treatments/sites and run network methodology
+for(Treatment_Iter in Treatments_vec){ 
+  ### Directory Creation ----------------------------------------------
+  Dir.PlotNets.PFTC.Iter <- file.path(Dir.PlotNets.PFTC, Treatment_Iter)
   if(dir.exists(Dir.PlotNets.PFTC.Iter)){
-    print(paste("PFTC models already run for Treatment/Plot, ", Treatment,". You can find them here:", Dir.PlotNets.PFTC.Iter))
+    print(paste("PFTC models already run for Treatment/Plot, ", Treatment_Iter,". You can find them here:", Dir.PlotNets.PFTC.Iter))
     next()
   }
   dir.create(Dir.PlotNets.PFTC.Iter)
-  OmitCols <- -(which(colnames(Mal_df)[-c(1:4)] %nin% Mal_df$focal)+4)
-  if(length(OmitCols) != 0){
-    Run_df <- Run_df[, OmitCols]
-  }else{
-    Run_df <- Run_df
-  }
-  Run_df <- Run_df[Run_df$fit != 0, ]
   
-  FIA_StanList <- Fun_StanList(Fitness = "fit", data = Run_df)
+  ### Data Preparation and Subsetting ---------------------------------
+  ## Create iteration versions of the base data
+  Run_Index_df <- Index_df
+  Run_Neigh_df <- Neigh_df
+  Run_Envir_df <- Envir_df
+  ## subset if needed according to iteration
+  if(Treatment_Iter != "ALL"){
+    ## Identify Treatments in Envir
+    EnvirTreatment_df <- data.frame(Treatment = sapply(str_split(Envir_df$SiteID, "_"), "[[", 2),
+                                    Plot = sapply(str_split(Envir_df$SiteID, "_"), "[[", 1)
+    )
+    ## subsetting
+    Run_Envir_df <- Run_Envir_df[which(EnvirTreatment_df[,1] == Treatment_Iter | EnvirTreatment_df[,2] == Treatment_Iter), ]
+    Run_Envir_df <- Run_Envir_df[which(rowSums(Run_Envir_df[ ,-1], na.rm=TRUE) != 0), ] # remove all sites for which we do not have environmental data
+    
+    ## Identify Treatments in Neigh
+    NeighTreatment_df <- data.frame(Treatment = sapply(str_split(Neigh_df$SiteID, "_"), "[[", 2),
+                                   Plot = sapply(str_split(Neigh_df$SiteID, "_"), "[[", 1)
+    )
+    ## subsetting
+    Run_Neigh_df <- Run_Neigh_df[which(NeighTreatment_df[,1] == Treatment_Iter | NeighTreatment_df[,2] == Treatment_Iter), ]
+    Run_Neigh_df <- Run_Neigh_df[Run_Neigh_df$SiteID %in% Run_Envir_df$SiteID, ] # keep only sites for which we have climate data
+    ## subsetting
+    Run_Index_df <- Run_Index_df[which(Treatments_df[,1] == Treatment_Iter | Treatments_df[,2] == Treatment_Iter), ]
+    Run_Index_df <- Run_Index_df[Run_Index_df$SiteID %in% Run_Envir_df$SiteID, ] # keep only sites for which we have climate data
+  }
+  
+  ### Data Sanity Checks ----------------------------------------------
+  Run_Neigh_df <- Run_Neigh_df[, c(1,which(colSums(Run_Neigh_df[,-1], na.rm = TRUE) != 0)+1)] # retain only neighbours which are observed at least once at each site/treatment
+  
+  
+  # OmitCols <- -(which(colnames(Neigh_df)[-c(1:4)] %nin% Mal_df$focal)+4)
+  # if(length(OmitCols) != 0){
+  #   Run_df <- Run_df[, OmitCols]
+  # }else{
+  #   Run_df <- Run_df
+  # }
+  # Run_df <- Run_df[Run_df$fit != 0, ]
+  
+  ## MODEL DATA LIST --------------------------------------------------
+  Stan_list <- FUN.StanList(
+    Outcome = "Outcome", # name of the outcome variable column in Index_df
+    Index_df = Run_Index_df, # data frame containing columns for ID, Fitness, Site, and Species
+    Neigh_df = Run_Neigh_df, # data frame containing column for site and columns for all species; cells containing predictor variable of each species at each site
+    Envir_df = Run_Envir_df # data frame containing column for site and columns for climate variables; cells containing climate variable values at each site
+  )
+  
+  # FIA_StanList <- Fun_StanList(Fitness = "fit", data = Run_df)
   
   #### Preferences
   rstan_options(auto_write = TRUE)
@@ -93,12 +167,12 @@ for(Treatment in Treatments_vec){
   options(mc.cores = nChains) 
   
   ## CHECKING DATA
-  focalID <- unique(Run_df$focal)
-  neighbourID <- colnames(Run_df[ , -c(1:4)])
-  Fun_PreCheck(data = Run_df)
+  # focalID <- unique(Run_df$focal)
+  # neighbourID <- colnames(Run_df[ , -c(1:4)])
+  FUN.DataDims(data = Stan_list)
   ## RUNNING MODEL
-  fit <- stan(file = 'Supplement - StanModel.stan',
-              data =  FIA_StanList,               # named list of data
+  fit <- stan(file = 'StanModel_Development.stan',
+              data =  Stan_list,               # named list of data
               chains = nChains,
               warmup = nWarmup,          # number of warmup iterations per chain
               iter = nSamples,            # total number of iterations per chain
@@ -237,5 +311,5 @@ for(Treatment in Treatments_vec){
            fontsize = 5)
   dev.off()
   
-  PlotNetUncert(Model = inter_mat, Dir = Dir.PlotNets.PFTC, Name = Treatment)
+  FUN.PlotNetUncert(Model = inter_mat, Dir = Dir.PlotNets.PFTC, Name = Treatment_Iter)
 }

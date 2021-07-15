@@ -1,11 +1,13 @@
-# ####################################################################### #
-# PROJECT: [PhD; X - NETWORK PLOTTING]
-# CONTENTS: Functionality for plotting of networks
-# AUTHOR: Erik Kusch
-# EDIT: 30/06/2021
-# ####################################################################### #
+#' ####################################################################### #
+#' PROJECT: [PhD; X - NETWORK PLOTTING] 
+#' CONTENTS: 
+#'  - Functionality for plotting of networks
+#'  DEPENDENCIES:
+#'  - 
+#' AUTHOR: [Erik Kusch]
+#' ####################################################################### #
 
-PlotNetUncert <- function(Model = inter_mat, Dir = getwd(), Name = "Plot"){
+FUN.PlotNetUncert <- function(Model = inter_mat, Dir = getwd(), Name = "Plot"){
   ####### DATA LOADING ---------------------------------------------------------
   mean_df <- apply(Model, c(1, 2), mean) # will return the mean estimate for every interaction (NB: this is the mean of the 80% posterior interval, so will be slightly different to the mean value returned from summary(fit), which is calculated from the full posterior distribution)  
   colnames(mean_df) <- gsub(pattern = " ", replacement = "_", x = colnames(mean_df))
@@ -22,8 +24,8 @@ PlotNetUncert <- function(Model = inter_mat, Dir = getwd(), Name = "Plot"){
 
   ####### DATA MANIPULATION ---------------------------------------------------------
   uncertainty_df <- max_df - min_df
-  rownames(mean_df) <- colnames(mean_df)
-  rownames(uncertainty_df) <- colnames(mean_df)
+  rownames(uncertainty_df) <- rownames(mean_df)
+  colnames(uncertainty_df) <- colnames(mean_df)
   Interactions_igraph <- data.frame(Actor = rep(colnames(mean_df), each = nrow(mean_df)),
                                     Subject = rep(rownames(mean_df), ncol(mean_df)),
                                     Estimate = as.vector(unlist(mean_df)),
@@ -79,4 +81,16 @@ PlotNetUncert <- function(Model = inter_mat, Dir = getwd(), Name = "Plot"){
     visNodes(shape = "circle") %>%
     visEdges(arrows = "to", smooth = list(roundness = 0.3), color = list(opacity = opacity)) 
   visSave(VisNet_graph, file = file.path(Dir, paste0(Name, ".html")), selfcontained = TRUE, background = "darkgrey")  
+  
+  ###. HEATMAP ---- 
+  fv.colors = colorRampPalette(c("red","white","green")) ## define the color ramp
+  colorlut = fv.colors(100)[c(1,seq(50,100,length.out=99))] ## select colors to use
+  
+  diag(mean_df) <- 0
+  jpeg(filename = file.path(Dir.PlotNets.PFTC, paste0(Name, ".jpeg")), units = "cm", width = 32, height = 18, res = 1000)
+  pheatmap(mean_df, display_numbers = TRUE, number_format =  "%.4f",
+           color = c("red", "white","green"), 
+           breaks = c(min(mean_df, na.rm = TRUE), -0.00001, 0.00001, max(mean_df, na.rm = TRUE)), main = "Actors (Columns) x Subject (Rows)",
+           fontsize = 20, cluster_rows = FALSE)
+  dev.off()
 }
